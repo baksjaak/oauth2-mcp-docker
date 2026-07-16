@@ -5,10 +5,9 @@ services:
     command: ha-mcp-web
 #    ports:
 #      - "8086:8086"
-    environment:
-      - HOMEASSISTANT_URL=${HOMEASSISTANT_URL}
-      - HOMEASSISTANT_TOKEN=${HOMEASSISTANT_TOKEN}
-      - HA_VERIFY_SSL=false
+    env_file:
+      - .env
+      - secrets/pocket-id.secrets.env
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -70,7 +69,9 @@ services:
   pihole-mcp:
     container_name: pihole-mcp
     image: sbarbett/pihole-mcp-server:latest
-    env_file: pihole-mcp.env
+    env_file:
+      - pihole-mcp.env
+      - secrets/pihole-mcp.secrets.env
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -81,7 +82,9 @@ services:
   oauth2-proxy-pihole:
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
     restart: unless-stopped
-    env_file: oauth2-proxy-pihole.env
+    env_file:
+      - oauth2-proxy-pihole.env
+      - secrets/oauth2-proxy-pihole.secrets.env
     depends_on:
       - pocket-id
       - pihole-mcp
@@ -89,7 +92,9 @@ services:
   pocket-id:
     image: pocketid/pocket-id:v2 # or ghcr.io/pocket-id/pocket-id:v2
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
+      - secrets/pocket-id.secrets.env
     volumes:
       - "./data:/app/data"
     # Optional healthcheck
@@ -108,8 +113,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    env_file:
+      - secrets/pocket-id.secrets.env
     volumes:
       - "./Caddyfile:/etc/caddy/Caddyfile:ro"
       - "caddy_data:/data"
@@ -120,7 +125,9 @@ services:
   oauth2-proxy-nas:
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
     restart: unless-stopped
-    env_file: oauth2-proxy-nas.env
+    env_file:
+      - oauth2-proxy-nas.env
+      - secrets/oauth2-proxy-nas.secrets.env
     depends_on:
       - pocket-id
       - synology-mcp
@@ -128,7 +135,9 @@ services:
   oauth2-proxy-ha:
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
     restart: unless-stopped
-    env_file: oauth2-proxy-ha.env
+    env_file:
+      - oauth2-proxy-ha.env
+      - secrets/oauth2-proxy-ha.secrets.env
     depends_on:
       - pocket-id
       - ha-mcp
