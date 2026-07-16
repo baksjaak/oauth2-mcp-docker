@@ -1,0 +1,8 @@
+backups/
+data/
+logs/
+*.env
+.env
+.mcp.json
+/mcp-server-synology/
+/openwrt-mcp-server/

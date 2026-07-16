@@ -1,0 +1,142 @@
+services:
+  ha-mcp:
+    container_name: ha-mcp
+    image: ghcr.io/homeassistant-ai/ha-mcp:latest
+    command: ha-mcp-web
+#    ports:
+#      - "8086:8086"
+    environment:
+      - HOMEASSISTANT_URL=${HOMEASSISTANT_URL}
+      - HOMEASSISTANT_TOKEN=${HOMEASSISTANT_TOKEN}
+      - HA_VERIFY_SSL=false
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  synology-mcp:
+    env_file: "./mcp-server-synology/.env"
+    build:
+      context: ./mcp-server-synology/
+      # Install the HTTP/SSE transport deps (mcp-proxy) into this image only.
+      args:
+        INSTALL_HTTP: "true"
+    container_name: synology-mcp
+    # mcp-proxy spawns `python main.py` as a stdio child and exposes it
+    # over SSE/Streamable HTTP on port 8765.
+    command:
+      - "mcp-proxy"
+      - "--host=0.0.0.0"
+      - "--port=8765"
+      - "--pass-environment"
+      - "--allow-origin=*"
+      - "--"
+      - "python"
+      - "main.py"
+#    ports:
+      # Publish on loopback only — a same-host reverse proxy (DSM/Nginx) reaches
+      # it; the unauthenticated proxy is never directly exposed to the network.
+#      - "8765:8765"
+    environment:
+      - XDG_CONFIG_HOME=/home/mcpuser/.config
+      # Required: Synology NAS connection
+      # Optional
+      - AUTO_LOGIN=true
+      # Default to verifying the NAS TLS cert. Set to false only if your DSM
+      # uses a self-signed cert you can't add to the trust store.
+      - VERIFY_SSL=false
+      - DEBUG=false
+      - LOG_LEVEL=info
+      - ENABLE_XIAOZHI=false
+    volumes:
+      - ./logs:/app/logs
+      # Multi-NAS settings.json support (XDG path) — optional
+      - ${XDG_CONFIG_HOME:-$HOME/.config}/synology-mcp:/home/mcpuser/.config/synology-mcp:ro
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  pihole-mcp:
+    container_name: pihole-mcp
+    image: sbarbett/pihole-mcp-server:latest
+    env_file: pihole-mcp.env
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  oauth2-proxy-pihole:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    restart: unless-stopped
+    env_file: oauth2-proxy-pihole.env
+    depends_on:
+      - pocket-id
+      - pihole-mcp
+
+  pocket-id:
+    image: pocketid/pocket-id:v2 # or ghcr.io/pocket-id/pocket-id:v2
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - "./data:/app/data"
+    # Optional healthcheck
+    healthcheck:
+      test: [ "CMD", "/app/pocket-id", "healthcheck" ]
+      interval: 1m30s
+      timeout: 5s
+      retries: 2
+      start_period: 10s
+
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - "./Caddyfile:/etc/caddy/Caddyfile:ro"
+      - "caddy_data:/data"
+      - "caddy_config:/config"
+    depends_on:
+      - pocket-id
+
+  oauth2-proxy-nas:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    restart: unless-stopped
+    env_file: oauth2-proxy-nas.env
+    depends_on:
+      - pocket-id
+      - synology-mcp
+
+  oauth2-proxy-ha:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    restart: unless-stopped
+    env_file: oauth2-proxy-ha.env
+    depends_on:
+      - pocket-id
+      - ha-mcp
+
+volumes:
+  caddy_data:
+    external: true
+    name: pocket-id_caddy_data
+  caddy_config:
+    external: true
+    name: pocket-id_caddy_config

@@ -1,0 +1,47 @@
+auth.beep-boop.nl {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy pocket-id:1411
+}
+
+nas.mcp.beep-boop.nl {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy oauth2-proxy-nas:4180
+}
+
+ha.mcp.beep-boop.nl {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy oauth2-proxy-ha:4180
+}
+
+pihole.mcp.beep-boop.nl {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy oauth2-proxy-pihole:4180
+}
+
+
+fotos.beep-boop.nl {
+        tls {
+                dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+        }
+        reverse_proxy 192.168.1.51:2283
+}
+
+port.beep-boop.nl {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy https://192.168.1.50:9443 {
+		transport http {
+			tls_insecure_skip_verify
+		}
+	}
+}
+
